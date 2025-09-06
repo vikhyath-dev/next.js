@@ -524,6 +524,12 @@ export const configSchema: zod.ZodType<NextConfig> = z.lazy(() =>
           ])
           .optional(),
         optimizeRouterScrolling: z.boolean().optional(),
+        partialStaticExport: z
+          .strictObject({
+            paths: z.array(z.string()).min(1),
+            outDir: z.string().min(1).optional(),
+          })
+          .optional(),
       })
       .optional(),
     exportPathMap: z

@@ -961,6 +961,20 @@ export interface ExperimentalConfig {
    * Enable accessing root params via the `next/root-params` module.
    */
   rootParams?: boolean
+
+  /**
+   * When provided, performs a partial static export for only the specified URL paths.
+   * The export runs after a normal build and writes static files for the selected
+   * paths to the provided out directory (or "out-partial" by default).
+   *
+   * This is experimental and subject to change.
+   */
+  partialStaticExport?: {
+    /** Concrete URL paths to export, e.g. "/", "/about", "/blog/hello" */
+    paths: string[]
+    /** Optional output directory relative to project root (default: "out-partial") */
+    outDir?: string
+  }
 }
 
 export type ExportPathMap = {

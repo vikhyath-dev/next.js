@@ -4108,6 +4108,57 @@ export default async function build(
         )
       }
 
+      // Experimental: partial static export for specific routes only
+      if (config.experimental.partialStaticExport) {
+        const partialOutDir = path.join(
+          dir,
+          config.experimental.partialStaticExport.outDir || 'out-partial'
+        )
+
+        const exportApp = (
+          require('../export') as typeof import('../export')
+        ).default as typeof import('../export').default
+
+        // Build an export map limited to the requested paths
+        const partialPaths = new Set(
+          config.experimental.partialStaticExport.paths.map((p) =>
+            p === '' ? '/' : p.startsWith('/') ? p : `/${p}`
+          )
+        )
+
+        // We use a constrained export config that returns only requested paths
+        const exportConfig: NextConfigComplete = {
+          ...config,
+          // Ensure we don't try to run a full export implicitly
+          exportPathMap: async (defaultMap) => {
+            const limited: any = {}
+            for (const [k, v] of Object.entries(defaultMap)) {
+              if (partialPaths.has(k)) limited[k] = v
+            }
+            // If user requested paths that are not in defaultMap, still attempt mapping
+            for (const req of partialPaths) {
+              if (!limited[req] && defaultMap[req]) limited[req] = defaultMap[req]
+            }
+            return limited
+          },
+        }
+
+        await exportApp(
+          dir,
+          {
+            buildExport: false,
+            nextConfig: exportConfig,
+            enabledDirectories,
+            silent: true,
+            outdir: partialOutDir,
+            numWorkers: getNumberOfWorkers(exportConfig),
+            appDirOnly,
+            statusMessage: 'Exporting selected routes',
+          },
+          nextBuildSpan
+        )
+      }
+
       if (config.experimental.adapterPath) {
         await handleBuildComplete({
           dir,
