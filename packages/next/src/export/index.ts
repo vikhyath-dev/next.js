@@ -280,6 +280,18 @@ async function exportAppImpl(
     }
   }
 
+  // When experimental.partialStaticExport is provided, we will allow exporting only
+  // the selected set of URL paths. We use this to filter the prerendered copy step below.
+  const allowedPartialExportPaths: Set<string> | null = Array.isArray(
+    nextConfig.experimental?.partialStaticExport?.paths
+  )
+    ? new Set(
+        (nextConfig.experimental!.partialStaticExport!.paths as string[]).map(
+          (p) => (p && p.startsWith('/') ? p : `/${p || ''}`) || '/'
+        )
+      )
+    : null
+
   const {
     i18n,
     images: { loader = 'default', unoptimized },
@@ -783,8 +795,26 @@ async function exportAppImpl(
   if (!options.buildExport && prerenderManifest) {
     await Promise.all(
       Object.keys(prerenderManifest.routes).map(async (unnormalizedRoute) => {
+        // If partial export is enabled, only include routes that were requested.
+        if (
+          allowedPartialExportPaths &&
+          // Special handling for /_not-found mapping to /404 below
+          unnormalizedRoute !== '/_not-found' &&
+          !allowedPartialExportPaths.has(unnormalizedRoute)
+        ) {
+          return
+        }
         // Special handling: map app /_not-found to 404.html (and 404/index.html when trailingSlash)
         if (unnormalizedRoute === '/_not-found') {
+          if (
+            allowedPartialExportPaths &&
+            !(
+              allowedPartialExportPaths.has('/404') ||
+              allowedPartialExportPaths.has('/404.html')
+            )
+          ) {
+            return
+          }
           const { srcRoute } = prerenderManifest!.routes[unnormalizedRoute]
           const appPageName = mapAppRouteToPage.get(srcRoute || '')
           const pageName = appPageName || srcRoute || unnormalizedRoute
@@ -818,6 +848,12 @@ async function exportAppImpl(
         }
         // Skip 500.html in static export
         if (unnormalizedRoute === '/_global-error') {
+          return
+        }
+        if (
+          allowedPartialExportPaths &&
+          !allowedPartialExportPaths.has(unnormalizedRoute)
+        ) {
           return
         }
         const { srcRoute } = prerenderManifest!.routes[unnormalizedRoute]
